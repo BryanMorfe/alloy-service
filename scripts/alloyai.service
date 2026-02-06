@@ -1,0 +1,13 @@
+[Unit]
+Description=AlloyAI Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/alloyai/bin/alloyai-start.sh --install-dir /usr/alloyai --config /etc/alloyai/alloyai.conf
+Restart=on-failure
+# User=alloy
+# Group=alloy
+
+[Install]
+WantedBy=multi-user.target

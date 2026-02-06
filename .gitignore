@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.cache/
+.env
+.env.*
+.venv/
+venv/
+ENV/
+.python-version
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Model/artifact outputs
+client_outputs/
+client_chat_outputs/
+output_*.png
+output_*.jpg
+output_*.jpeg
+output_*.webp
+output_*.mp4
+output_*.wav
+output_*.json
+output_*.txt
+
+# Large model artifacts
+*.safetensors
+*.ckpt
+*.bin
+*.pt
+*.pth
