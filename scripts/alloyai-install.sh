@@ -1,15 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+LOG_PREFIX="[ALLOYAI]"
+LOG_LEVEL="info"
+
+_level_value() {
+  case "$1" in
+    debug) echo 10 ;;
+    info) echo 20 ;;
+    warn|warning) echo 30 ;;
+    error) echo 40 ;;
+    *) echo 20 ;;
+  esac
+}
+
+_log() {
+  local level="$1"
+  shift
+  local current_level="$(_level_value "$LOG_LEVEL")"
+  local msg_level="$(_level_value "$level")"
+  if [[ "$msg_level" -lt "$current_level" ]]; then
+    return
+  fi
+  printf '%s %s %s %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$LOG_PREFIX" "${level^^}" "$*" >&2
+}
+
 usage() {
   cat <<'USAGE'
-Usage: alloyai-install.sh [--install-dir=/usr/alloyai] [--force]
+Usage: alloyai-install.sh [--install-dir=/usr/local/alloyai] [--force]
 
 Copies source into the install dir and installs helper scripts.
 USAGE
 }
 
-INSTALL_DIR="/usr/alloyai"
+INSTALL_DIR="/usr/local/alloyai"
 FORCE=0
 
 for arg in "$@"; do
@@ -17,7 +41,7 @@ for arg in "$@"; do
     --install-dir=*) INSTALL_DIR="${arg#*=}" ;;
     --force) FORCE=1 ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "Unknown argument: $arg" >&2; usage; exit 1 ;;
+    *) _log error "Unknown argument: $arg"; usage; exit 1 ;;
   esac
 done
 
@@ -25,7 +49,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 if [[ ! -d "$SOURCE_DIR/alloyai" ]]; then
-  echo "Expected alloyai package in $SOURCE_DIR" >&2
+  _log error "Expected alloyai package in $SOURCE_DIR"
   exit 1
 fi
 
@@ -33,16 +57,18 @@ SRC_DEST="$INSTALL_DIR/src"
 BIN_DEST="$INSTALL_DIR/bin"
 
 if [[ -d "$SRC_DEST" && $FORCE -ne 1 ]]; then
-  echo "Install directory already exists: $SRC_DEST (use --force to overwrite)" >&2
+  _log error "Install directory already exists: $SRC_DEST (use --force to overwrite)"
   exit 1
 fi
 
 mkdir -p "$SRC_DEST" "$BIN_DEST"
 
 if [[ $FORCE -eq 1 ]]; then
+  _log warn "Overwriting existing source directory"
   rm -rf "$SRC_DEST/alloyai"
 fi
 
+_log info "Copying source to $SRC_DEST"
 cp -a "$SOURCE_DIR/alloyai" "$SRC_DEST/"
 for file in pyproject.toml README.md LICENSE AGENTS.md; do
   if [[ -f "$SOURCE_DIR/$file" ]]; then
@@ -50,6 +76,7 @@ for file in pyproject.toml README.md LICENSE AGENTS.md; do
   fi
 done
 
+_log info "Installing scripts to $BIN_DEST"
 cp -a "$SCRIPT_DIR/alloyai-init.sh" "$BIN_DEST/"
 cp -a "$SCRIPT_DIR/alloyai-start.sh" "$BIN_DEST/"
 cp -a "$SCRIPT_DIR/alloyai.service" "$BIN_DEST/"
@@ -65,14 +92,17 @@ if mkdir -p "$CONFIG_DIR" 2>/dev/null; then
 # AlloyAI server config
 host = 0.0.0.0
 port = 8000
+log_level = info
+log_prefix = [ALLOYAI]
+# log_format = %(asctime)s [ALLOYAI] %(levelname)s %(name)s: %(message)s
 # extra_args = --log-level info
 CONF
   fi
 else
-  echo "Could not create $CONFIG_DIR (insufficient permissions)."
-  echo "Create $CONFIG_FILE manually if needed."
+  _log warn "Could not create $CONFIG_DIR (insufficient permissions)."
+  _log warn "Create $CONFIG_FILE manually if needed."
 fi
 
-echo "Installed source to: $SRC_DEST"
-echo "Scripts in: $BIN_DEST"
-echo "Config: $CONFIG_FILE"
+_log info "Installed source to: $SRC_DEST"
+_log info "Scripts in: $BIN_DEST"
+_log info "Config: $CONFIG_FILE"

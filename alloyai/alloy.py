@@ -1,22 +1,24 @@
 import argparse
-import sys
+import logging
 import time
 from typing import Iterable
 
 from .gpu_manager import SnapshotScope
+from .logging_utils import configure_logging
 from .runtime import get_runtime
 
 
 def _print_table(rows: Iterable[str]) -> None:
+    logger = logging.getLogger("alloyai.table")
     for row in rows:
-        print(row)
+        logger.info(row)
 
 
 def cmd_list() -> int:
     runtime = get_runtime()
     models = runtime.registry.list_models()
     if not models:
-        print("No models registered")
+        logging.getLogger("alloyai").info("No models registered")
         return 0
     _print_table(models)
     return 0
@@ -32,17 +34,22 @@ def cmd_ps() -> int:
     except Exception as exc:
         snapshot = manager.status_snapshot(scope=SnapshotScope.MANAGER)
         scope_label = "manager"
-        print(f"Warning: system snapshot unavailable ({exc})", file=sys.stderr)
+        logging.getLogger("alloyai").warning(
+            "System snapshot unavailable (%s)", exc, exc_info=False
+        )
 
-    print(f"GPU usage ({scope_label})")
+    logging.getLogger("alloyai").info("GPU usage (%s)", scope_label)
     for state in snapshot.gpus:
-        print(
-            f"- {state.gpu_id}: total={state.total_vram_mb}MB "
-            f"used={state.used_vram_mb}MB free={state.free_vram_mb}MB"
+        logging.getLogger("alloyai").info(
+            "- %s: total=%sMB used=%sMB free=%sMB",
+            state.gpu_id,
+            state.total_vram_mb,
+            state.used_vram_mb,
+            state.free_vram_mb,
         )
 
     if snapshot.allocations:
-        print("Allocated models")
+        logging.getLogger("alloyai").info("Allocated models")
         now = time.time()
         for record in snapshot.allocations:
             idle_s = int(max(now - record.last_used_at, 0))
@@ -56,33 +63,47 @@ def cmd_ps() -> int:
                 if record.gpu_assignment
                 else ""
             )
-            print(
-                f"- {record.model.model_id}: gpus={gpu_list} "
-                f"vram={vram_detail} active={record.active_requests} "
-                f"idle_s={idle_s}{parts}"
+            logging.getLogger("alloyai").info(
+                "- %s: gpus=%s vram=%s active=%s idle_s=%s%s",
+                record.model.model_id,
+                gpu_list,
+                vram_detail,
+                record.active_requests,
+                idle_s,
+                parts,
             )
     else:
-        print("Allocated models: none")
+        logging.getLogger("alloyai").info("Allocated models: none")
 
     if snapshot.queue:
-        print("Queued models")
+        logging.getLogger("alloyai").info("Queued models")
         for request in snapshot.queue:
-            print(
-                f"- {request.model.model_id}: priority={request.priority} "
-                f"requested_at={int(request.requested_at)}"
+            logging.getLogger("alloyai").info(
+                "- %s: priority=%s requested_at=%s",
+                request.model.model_id,
+                request.priority,
+                int(request.requested_at),
             )
 
     return 0
 
 
-def cmd_serve(host: str, port: int) -> int:
+def cmd_serve(host: str, port: int, log_level: str | None) -> int:
     try:
         import uvicorn
     except Exception as exc:
-        print(f"uvicorn is required to run the server ({exc})", file=sys.stderr)
+        logging.getLogger("alloyai").error(
+            "uvicorn is required to run the server (%s)", exc, exc_info=False
+        )
         return 1
 
-    uvicorn.run("alloyai.server:app", host=host, port=port, reload=False)
+    uvicorn.run(
+        "alloyai.server:app",
+        host=host,
+        port=port,
+        reload=False,
+        log_level=(log_level or "info"),
+    )
     return 0
 
 
@@ -96,15 +117,19 @@ def main() -> int:
     serve_parser = subparsers.add_parser("serve", help="Run the HTTP server")
     serve_parser.add_argument("--host", default="0.0.0.0")
     serve_parser.add_argument("--port", type=int, default=8000)
+    serve_parser.add_argument("--log-level", default=None)
+    serve_parser.add_argument("--log-prefix", default=None)
+    serve_parser.add_argument("--log-format", default=None)
 
     args = parser.parse_args()
+    configure_logging(args.log_level, args.log_prefix, args.log_format)
 
     if args.command == "list":
         return cmd_list()
     if args.command == "ps":
         return cmd_ps()
     if args.command == "serve":
-        return cmd_serve(args.host, args.port)
+        return cmd_serve(args.host, args.port, args.log_level)
 
     parser.print_help()
     return 1

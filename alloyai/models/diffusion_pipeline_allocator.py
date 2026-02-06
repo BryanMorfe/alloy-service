@@ -1,3 +1,5 @@
+import logging
+
 from diffusers import DiffusionPipeline
 from transformers import PreTrainedModel, ProcessorMixin
 from typing import Optional, Type, Mapping, Union, Tuple
@@ -26,7 +28,11 @@ class DiffusionPipelineAllocator:
 
 
     def allocate_resources(self, gpu_id: Union[str, Mapping[str, str]]) -> None:
-        print(f"Allocating DiffusionModel {self.model_id} on device {gpu_id}...")
+        logging.getLogger(__name__).info(
+            "Allocating DiffusionModel %s on device %s...",
+            self.model_id,
+            gpu_id,
+        )
         pipeline_device, text_encoder_device = self._resolve_devices(gpu_id)
 
         if self.text_encoder_type is None:
@@ -94,10 +100,14 @@ class DiffusionPipelineAllocator:
                 text_encoder=self.pipeline.text_encoder,
                 tokenizer=self.pipeline.tokenizer,
             )
-            print(f"Created per-request pipeline.")
+            logging.getLogger(__name__).debug("Created per-request pipeline.")
             return request_pipe
         except Exception as e:
-            print(f"Failed to create per-request pipeline: {e}")
+            logging.getLogger(__name__).warning(
+                "Failed to create per-request pipeline: %s",
+                e,
+                exc_info=False,
+            )
             return None
         
 

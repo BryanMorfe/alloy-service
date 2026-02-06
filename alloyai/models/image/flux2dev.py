@@ -1,11 +1,13 @@
-from .. import Modality, ModelCapability, DiffusionModel
-from ...image_loader import ImageLoader
-from typing import List
-import torch
 import gc
+import logging
+from typing import List
+
+import torch
 from diffusers import Flux2Pipeline
 from transformers import Mistral3ForConditionalGeneration, PixtralProcessor
 
+from .. import DiffusionModel, ModelCapability, Modality
+from ...image_loader import ImageLoader
 def format_text_input(
     prompts: List[str],
     system_message: str
@@ -50,7 +52,7 @@ class Flux2DevModel(DiffusionModel):
         
 
     def __call__(self, **kwargs):
-        print("Generating prompt embeddings for Flux2-Dev...")
+        logging.getLogger(__name__).info("Generating prompt embeddings for Flux2-Dev...")
         prompt = kwargs.get("prompt", "")
         prompt_embeds = kwargs.get("prompt_embeds", None)
 
@@ -92,7 +94,7 @@ class Flux2DevModel(DiffusionModel):
             prompt_embeds = cpu_prompt_embeds.to(self.allocator.pipeline.device)
             kwargs["prompt_embeds"] = prompt_embeds
 
-        print("Embeddings generated!")
+        logging.getLogger(__name__).info("Embeddings generated!")
 
         return super().__call__(**kwargs)
     

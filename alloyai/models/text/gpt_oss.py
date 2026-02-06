@@ -1,6 +1,9 @@
-from .. import Model
-from typing import Union, Mapping
+import logging
 import gc
+from typing import Mapping, Union
+
 import torch
 
-print(torch.__version__)
+from .. import Model
+
+logging.getLogger(__name__).debug("torch version: %s", torch.__version__)

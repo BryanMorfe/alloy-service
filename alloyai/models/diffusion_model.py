@@ -1,3 +1,4 @@
+import logging
 import threading
 
 from ..image_loader import ImageLoader
@@ -43,7 +44,11 @@ class DiffusionModel(EventPublisher, Model):
         total_steps = kwargs.get("num_inference_steps")
         existing_callback = kwargs.get("callback_on_step_end")
 
-        print(f"Starting diffusion generation for model {self.model_id} with rid {request_id}...")
+        logging.getLogger(__name__).info(
+            "Starting diffusion generation for model %s with rid %s",
+            self.model_id,
+            request_id,
+        )
 
         if request_id:
             callback = get_diffusion_callback(
