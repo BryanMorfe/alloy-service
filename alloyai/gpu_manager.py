@@ -362,6 +362,27 @@ class GPUManager:
         with self._lock:
             return self._process_queue_locked()
 
+    def supports_model(self, model: Model) -> bool:
+        """
+        Return whether this node can ever allocate the model based on configured
+        total GPU capacity (ignores current usage).
+        """
+        try:
+            required = self._normalize_required_vram(model.required_vram_mb)
+        except ValueError:
+            return False
+
+        with self._lock:
+            totals = dict(self._total_vram_mb)
+
+        if isinstance(required, dict):
+            return self._can_fit_discrete_requirement(required, totals)
+
+        if bool(getattr(model, "spreadable", False)):
+            return sum(totals.values()) >= required
+
+        return bool(totals) and max(totals.values()) >= required
+
     def status_snapshot(self, scope: SnapshotScope = SnapshotScope.MANAGER) -> GPUManagerSnapshot:
         with self._lock:
             if scope == SnapshotScope.MANAGER:
@@ -385,6 +406,44 @@ class GPUManager:
                 queue=queue,
                 usage_scope=scope,
             )
+
+    def _can_fit_discrete_requirement(
+        self,
+        required_by_part: Mapping[str, int],
+        totals_by_gpu: Mapping[str, int],
+    ) -> bool:
+        if not required_by_part:
+            return False
+        if not totals_by_gpu:
+            return False
+
+        parts = sorted(required_by_part.items(), key=lambda item: item[1], reverse=True)
+        if parts[0][1] > max(totals_by_gpu.values()):
+            return False
+
+        gpu_ids = list(totals_by_gpu.keys())
+        remaining = {gpu_id: int(total) for gpu_id, total in totals_by_gpu.items()}
+
+        def backtrack(index: int) -> bool:
+            if index >= len(parts):
+                return True
+            _, required_mb = parts[index]
+            tried_remaining: set[int] = set()
+            for gpu_id in gpu_ids:
+                available = remaining[gpu_id]
+                if available < required_mb:
+                    continue
+                # Skip equivalent states for GPUs with identical remaining capacity.
+                if available in tried_remaining:
+                    continue
+                tried_remaining.add(available)
+                remaining[gpu_id] = available - required_mb
+                if backtrack(index + 1):
+                    return True
+                remaining[gpu_id] = available
+            return False
+
+        return backtrack(0)
 
     def _normalize_required_vram(self, required_vram_mb: Any) -> Union[int, Dict[str, int]]:
         if isinstance(required_vram_mb, Mapping):

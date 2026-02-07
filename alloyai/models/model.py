@@ -81,6 +81,7 @@ class Model(Publisher, Protocol):
     priority: int
     capabilities: Sequence[ModelCapability]
     spreadable: bool
+    supports_concurrent_requests: bool
 
     def __call__(self, **kwargs: Any) -> Any:
         """Run inference or generation for this model."""

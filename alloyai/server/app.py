@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from .routes.audio import router as audio_router
 from .routes.chat import router as chat_router
 from .routes.image import router as image_router
+from .routes.models import router as models_router
 from ..runtime import get_runtime
 
 
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
     app.include_router(image_router)
     app.include_router(chat_router)
     app.include_router(audio_router)
+    app.include_router(models_router)
 
     @app.on_event("startup")
     async def _startup() -> None:

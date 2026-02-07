@@ -51,6 +51,35 @@ pip install -e .[all]
 
 ## HTTP API
 
+### GET /models
+
+Returns grouped model metadata by output modality:
+
+```json
+{
+  "image": [
+    {
+      "model_id": "qwen-image",
+      "active_requests": 0,
+      "is_supported": true,
+      "capabilities": [
+        {
+          "inputs": ["text"],
+          "outputs": ["image"],
+          "name": "text-to-image"
+        }
+      ],
+      "allocation_status": "deallocated"
+    }
+  ],
+  "audio": [],
+  "video": [],
+  "text": []
+}
+```
+
+`is_supported` is computed from model registration and total node GPU capacity (ignores current usage).
+
 ### POST /image
 
 Request body (JSON):
